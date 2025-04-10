@@ -17,7 +17,8 @@ from config import (
     HEALTH_CHECK_URL, 
     ERROR_THRESHOLD,
     ERROR_COUNT_FILE,
-    LAST_ALERT_FILE
+    LAST_ALERT_FILE,
+    USE_LOCAL_ARCHIVE
 )
 
 # 确保所有必要的目录都存在
@@ -157,15 +158,36 @@ def load_existing_posts():
     Loads existing posts from the archive.
     """
     try:
-        logger.info(f"Loading existing posts from {ARCHIVE_URL}")
-        response = requests.get(ARCHIVE_URL, timeout=30)
-        response.raise_for_status()
-        data = response.json()
-        existing_posts = {post["id"]: post for post in data}
-        logger.info(f"Loaded {len(existing_posts)} existing posts")
-        return existing_posts
-    except requests.RequestException as e:
-        logger.warning(f"Could not fetch existing archive, starting fresh. Error: {e}")
+        # 首先检查是否使用本地存档
+        if USE_LOCAL_ARCHIVE:
+            if os.path.exists(OUTPUT_JSON_FILE):
+                logger.info(f"Loading existing posts from local file: {OUTPUT_JSON_FILE}")
+                with open(OUTPUT_JSON_FILE, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                existing_posts = {post["id"]: post for post in data}
+                logger.info(f"Loaded {len(existing_posts)} existing posts from local file")
+                return existing_posts
+            else:
+                logger.info(f"Local archive file not found: {OUTPUT_JSON_FILE}. Starting with empty archive.")
+                return {}
+        
+        # 如果不使用本地存档且设置了远程URL，则从远程获取
+        elif ARCHIVE_URL:
+            logger.info(f"Loading existing posts from remote URL: {ARCHIVE_URL}")
+            response = requests.get(ARCHIVE_URL, timeout=30)
+            response.raise_for_status()
+            data = response.json()
+            existing_posts = {post["id"]: post for post in data}
+            logger.info(f"Loaded {len(existing_posts)} existing posts from remote URL")
+            return existing_posts
+        
+        # 如果既不使用本地存档，也没有设置远程URL
+        else:
+            logger.info("No archive source configured. Starting with empty archive.")
+            return {}
+            
+    except Exception as e:
+        logger.warning(f"Could not load existing archive, starting fresh. Error: {e}")
         return {}
 
 def append_to_json_file(data, file_path):

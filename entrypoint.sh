@@ -13,7 +13,8 @@ cat > /app/data/config.json << EOF
   "scrape_proxy_key": "${SCRAPE_PROXY_KEY}",
   "lark_webhook_url": "${LARK_WEBHOOK_URL}",
   "health_check_url": "${HEALTH_CHECK_URL}",
-  "archive_url": "https://stilesdata.com/trump-truth-social-archive/truth_archive.json",
+  "archive_url": "",
+  "use_local_archive": true,
   "base_url": "https://truthsocial.com/api/v1/accounts/107780257626128497/statuses",
   "error_threshold": 5
 }

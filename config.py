@@ -13,7 +13,8 @@ DEFAULT_CONFIG = {
     "scrape_proxy_key": "",
     "lark_webhook_url": "",
     "health_check_url": "",
-    "archive_url": "https://stilesdata.com/trump-truth-social-archive/truth_archive.json",
+    "archive_url": "",  # 移除远程URL
+    "use_local_archive": True,  # 添加使用本地存档的标志
     "base_url": "https://truthsocial.com/api/v1/accounts/107780257626128497/statuses",
     "error_threshold": 5
 }
@@ -75,6 +76,7 @@ HEALTH_CHECK_URL = config.get("health_check_url")
 ARCHIVE_URL = config.get("archive_url")
 BASE_URL = config.get("base_url")
 ERROR_THRESHOLD = config.get("error_threshold", 5)
+USE_LOCAL_ARCHIVE = config.get("use_local_archive", True)
 
 # 常量配置
 SCRAPEOPS_ENDPOINT = "https://proxy.scrapeops.io/v1/"
