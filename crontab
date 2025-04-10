@@ -1,5 +1,5 @@
 # 每分钟运行一次抓取脚本，抓取后立即发送通知
 # 该脚本现在已整合健康检查功能
-* * * * * cd /app && python3 scrape.py >> /var/log/cron.log 2>&1
+* * * * * cd /app && /usr/local/bin/python scrape.py >> /var/log/cron.log 2>&1
 
 # 空行是必需的 
