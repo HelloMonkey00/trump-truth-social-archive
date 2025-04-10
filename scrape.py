@@ -7,6 +7,18 @@ import re
 import logging
 from datetime import datetime, timedelta
 from send_lark_notification import check_and_notify
+from config import (
+    SCRAPEOPS_API_KEY, 
+    SCRAPEOPS_ENDPOINT, 
+    OUTPUT_JSON_FILE, 
+    OUTPUT_CSV_FILE,
+    ARCHIVE_URL, 
+    BASE_URL, 
+    HEALTH_CHECK_URL, 
+    ERROR_THRESHOLD,
+    ERROR_COUNT_FILE,
+    LAST_ALERT_FILE
+)
 
 # 确保所有必要的目录都存在
 DATA_DIR = "./data"
@@ -26,20 +38,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger('trump_scraper')
 
-# Load credentials from environment variables
-SCRAPEOPS_API_KEY = os.getenv("SCRAPE_PROXY_KEY")
-SCRAPEOPS_ENDPOINT = "https://proxy.scrapeops.io/v1/"
-OUTPUT_JSON_FILE = "./data/truth_archive.json"
-OUTPUT_CSV_FILE = "./data/truth_archive.csv"
-ARCHIVE_URL = "https://stilesdata.com/trump-truth-social-archive/truth_archive.json"
-BASE_URL = "https://truthsocial.com/api/v1/accounts/107780257626128497/statuses"
-
-# 健康检查相关配置
-HEALTH_CHECK_URL = os.getenv("HEALTH_CHECK_URL")
-ERROR_THRESHOLD = 5  # 连续错误阈值
-ERROR_COUNT_FILE = "./data/error_count.txt"
-LAST_ALERT_FILE = "./data/last_alert.txt"
-
 def send_health_alert(status, message):
     """
     发送健康状态警报，但每天只发送一次
@@ -52,7 +50,7 @@ def send_health_alert(status, message):
         bool: 是否发送成功
     """
     if not HEALTH_CHECK_URL:
-        logger.warning("Missing HEALTH_CHECK_URL environment variable")
+        logger.warning("Missing health_check_url in config file")
         return False
     
     # 检查今天是否已经发送过告警
@@ -135,7 +133,7 @@ def scrape(url, headers=None):
     Makes a GET request to the target URL through the ScrapeOps proxy.
     """
     if not SCRAPEOPS_API_KEY:
-        raise ValueError("Missing SCRAPE_PROXY_KEY environment variable")
+        raise ValueError("Missing scrape_proxy_key in config file")
 
     session = requests.Session()
     if headers:

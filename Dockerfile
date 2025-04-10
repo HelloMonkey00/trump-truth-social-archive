@@ -7,13 +7,13 @@ RUN apt-get update && apt-get install -y cron vim && apt-get clean && rm -rf /va
 
 # 复制项目文件
 COPY requirements.txt .
+COPY config.py .
 COPY scrape.py .
 COPY send_lark_notification.py .
 COPY crontab /etc/cron.d/scraper-cron
 
-# 确保cron文件的权限正确并加载到root用户的crontab
+# 确保cron文件的权限正确
 RUN chmod 0644 /etc/cron.d/scraper-cron
-RUN crontab /etc/cron.d/scraper-cron
 
 # 创建数据目录
 RUN mkdir -p /app/data /app/data/logs
@@ -28,5 +28,9 @@ RUN touch /var/log/cron.log
 ENV PYTHONUNBUFFERED=1
 ENV EDITOR=vim
 
-# 运行cron作为前台进程，使用-f选项
-CMD cron -f 
+# 复制并设置entrypoint脚本
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
+# 运行entrypoint脚本
+ENTRYPOINT ["/app/entrypoint.sh"] 

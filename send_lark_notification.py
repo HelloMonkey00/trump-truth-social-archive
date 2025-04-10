@@ -4,6 +4,7 @@ import os
 import time
 import logging
 from datetime import datetime
+from config import LARK_WEBHOOK_URL
 
 # 确保所有必要的目录都存在
 DATA_DIR = "./data"
@@ -23,9 +24,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger('lark_notifier')
 
-# Lark Webhook URL - 设置为环境变量
-LARK_WEBHOOK_URL = os.getenv("LARK_WEBHOOK_URL")
-
 def send_lark_notification(post):
     """
     向Lark发送通知
@@ -37,7 +35,7 @@ def send_lark_notification(post):
         bool: 发送是否成功
     """
     if not LARK_WEBHOOK_URL:
-        logger.warning("Missing LARK_WEBHOOK_URL environment variable")
+        logger.warning("Missing lark_webhook_url in config file")
         return False
     
     # 准备媒体内容部分
