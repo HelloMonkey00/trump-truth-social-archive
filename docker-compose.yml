@@ -1,0 +1,13 @@
+version: '3'
+
+services:
+  trump-scraper:
+    build: .
+    container_name: trump-scraper
+    volumes:
+      - ./data:/app/data
+    environment:
+      - SCRAPE_PROXY_KEY=${SCRAPE_PROXY_KEY}
+      - LARK_WEBHOOK_URL=${LARK_WEBHOOK_URL}
+      - HEALTH_CHECK_URL=${HEALTH_CHECK_URL}
+    restart: always 

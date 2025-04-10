@@ -56,6 +56,113 @@ The scraper outputs posts in JSON format with the following structure:
 - **`reblogs_count`** → Number of re-posts, or re-truths, to Trump post
 - **`favourites_count`** → Number of favorites to Trump post
 
+## Docker Setup
+
+This repository now includes Docker support for easy deployment. The container runs the scraper on a schedule and can send notifications to a Lark (Feishu) workspace.
+
+### Using Docker Compose
+
+1. Copy the example environment file:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Edit the `.env` file and add your credentials:
+   ```
+   SCRAPE_PROXY_KEY=your_scrapeops_api_key
+   LARK_WEBHOOK_URL=your_lark_webhook_url
+   HEALTH_CHECK_URL=your_health_check_webhook_url
+   ```
+
+3. Start the container:
+   ```bash
+   docker-compose up -d
+   ```
+
+### Cron Schedule
+
+- The scraper runs every minute to fetch new posts
+- When new posts are found, notifications are sent immediately
+
+### Lark Notifications
+
+The system now supports sending notifications to a Lark (Feishu) workspace when new Trump posts are detected. Notifications include:
+
+- Post content
+- Media links
+- Engagement metrics (replies, reblogs, favorites)
+- Direct link to the original post
+
+To set up Lark notifications:
+
+1. Create a Lark bot in your workspace and get the webhook URL
+2. Add the webhook URL to your environment variables
+3. The container will automatically send notifications when new posts are detected
+
+### Health Checks
+
+The system includes a health check feature that monitors for errors and sends alerts when:
+
+- The system fails to fetch posts for a threshold number of times (currently 5)
+- The target site may be blocking requests or changed its structure
+
+Health alerts:
+- Are limited to one alert per day to avoid notification spam
+- Can be sent to a separate webhook URL for system administrators
+
+## Testing Locally
+
+The repository includes several test scripts to verify functionality before deployment:
+
+### General Testing
+
+The `test_locally.py` script provides a full simulation of the scraper's functionality:
+
+```bash
+# Run all tests
+python test_locally.py
+
+# Test only specific components
+python test_locally.py --mode scrape  # Test only scraping
+python test_locally.py --mode notify  # Test only notifications
+python test_locally.py --mode error   # Test only error handling
+
+# Keep test data for inspection
+python test_locally.py --clean
+```
+
+### Lark Notification Testing
+
+The `test_lark_notification.py` script tests the Lark notification functionality:
+
+```bash
+# First set your Lark webhook URL
+export LARK_WEBHOOK_URL="your_lark_webhook_url"
+
+# Run all notification tests
+python test_lark_notification.py
+
+# Test specific notification features
+python test_lark_notification.py --test single  # Test single notification
+python test_lark_notification.py --test media   # Test notification with media
+python test_lark_notification.py --test batch   # Test batch notifications
+python test_lark_notification.py --test dedup   # Test deduplication
+```
+
+### Health Check Testing
+
+The `test_health_check.py` script tests the health check and error handling functionality:
+
+```bash
+# Run all health check tests
+python test_health_check.py
+
+# Test specific health check features
+python test_health_check.py --test count      # Test error counting
+python test_health_check.py --test limit      # Test daily alert limit
+python test_health_check.py --test threshold  # Test error threshold alerts
+```
+
 ## GitHub Actions automation
 
 The scraper runs every four hours at 47 minutes past. It's using a GitHub Actions workflow and environment secrets for AWS and ScrapeOps. In addition to fetching the data, the workflow also copies it to a designated S3 bucket. 
@@ -89,6 +196,8 @@ You'll need to export your ScrapeOps API key and AWS credentials:
 export SCRAPE_PROXY_KEY="your_scrapeops_api_key"
 export AWS_ACCESS_KEY_ID="your_aws_key"
 export AWS_SECRET_ACCESS_KEY="your_aws_secret"
+export LARK_WEBHOOK_URL="your_lark_webhook_url"      # Optional, for notifications
+export HEALTH_CHECK_URL="your_health_check_url"      # Optional, for health monitoring
 ```
 
 ### Run the scraper
@@ -99,13 +208,22 @@ python scraper.py
 
 This will fetch new posts and update `truth_archive.json` and `truth_archive.csv`.
 
-## Deployment
+### Send notifications manually
 
-The script is fully automated via GitHub Actions. To update or change the workflow:
+```bash
+python send_lark_notification.py
+```
 
-- Modify `.github/workflows/trump-truth-social-archive.yml`
-- Push changes to GitHub
-- The workflow will execute on the next scheduled run
+This will check for new posts and send notifications to your configured Lark workspace.
+
+## Logging
+
+The system includes comprehensive logging:
+
+- Logs are stored in `./data/logs/` directory
+- Each component has its own log file with date-based naming
+- Log files include timestamps, log levels, and detailed information
+- All logs are also output to the console for real-time monitoring
 
 ## Data storage and access
 
