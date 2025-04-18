@@ -33,7 +33,9 @@ if [ ! -f /app/config/prompts.json ]; then
   
   "extract_topics": "分析以下文本，提取3-5个主要主题或关键词，特别关注与经济、金融市场相关的内容。\n文本: \"{text}\"\n请以JSON数组格式返回结果。",
   
-  "summarize_post": "用中文简洁地总结以下内容，重点关注可能影响金融市场的方面（50字以内）:\n\"{text}\"\n"
+  "summarize_post": "用中文简洁地总结以下内容，重点关注可能影响金融市场的方面（50字以内）:\n\"{text}\"\n",
+  
+  "should_notify": "评估以下内容是否真的会对金融市场产生实质性影响。内容: \"{text}\"\n分析: {analysis}\n只返回\"是\"或\"否\"开头，并附加一句简短的理由。"
 }
 EOF
 fi

@@ -52,7 +52,7 @@ class PostAnalyzer:
         default_prompts["market_impact"] = "分析以下文本内容与金融市场的关系。考虑内容是否会影响股票市场、特定行业、公司股价或者美元汇率等。详细分析可能的市场影响方向（利好/利空）、影响强度（1-5分，5为最强）及影响范围。文本: \"{text}\"\n请以JSON格式返回结果，包含impact_type（影响类型）、direction（方向：positive/negative/neutral）、intensity（1-5）和affected_sectors（受影响行业）字段。"
         default_prompts["extract_topics"] = "分析以下文本，提取3-5个主要主题或关键词，特别关注与经济、金融市场相关的内容。\n文本: \"{text}\"\n请以JSON数组格式返回结果。"
         default_prompts["summarize_post"] = "用中文简洁地总结以下内容，重点关注可能影响金融市场的方面（50字以内）:\n\"{text}\"\n"
-        default_prompts["should_notify"] = "评估以下内容是否真的会对金融市场产生实质性影响。内容: \"{text}\"\n分析: {analysis}\n只返回"是"或"否"开头，并附加一句简短的理由。"
+        default_prompts["should_notify"] = '评估以下内容是否真的会对金融市场产生实质性影响。内容: "{text}"\n分析: {analysis}\n只返回"是"或"否"开头，并附加一句简短的理由。'
         
         if os.path.exists(PROMPTS_CONFIG_FILE):
             try:
