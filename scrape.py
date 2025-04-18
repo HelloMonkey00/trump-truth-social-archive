@@ -330,7 +330,7 @@ def fetch_posts(max_pages=3):
     for i in range(max_pages):
         try:
             # 构建URL
-            url = f"{BASE_URL}?limit=5"
+            url = f"{BASE_URL}?limit=20"
             if max_id:
                 url = f"{url}&max_id={max_id}"
             
