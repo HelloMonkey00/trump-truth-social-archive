@@ -173,7 +173,7 @@ def scrape(url, headers=None):
     proxy_params = {
         'api_key': SCRAPEOPS_API_KEY,
         'url': url, 
-        'bypass': 'cloudflare_level_1'
+        # 'bypass': 'cloudflare_level_1' # 如果需要绕过Cloudflare防护，请取消注释，但是会增加credit消耗
     }
 
     logger.info(f"Making request to: {url}")
