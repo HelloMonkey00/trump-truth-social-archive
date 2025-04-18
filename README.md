@@ -1,247 +1,124 @@
-# Trump Truth Social archive scraper
+# Trump Truth Social Archive
 
-This repository contains a Python script that scrapes posts from Donald Trump's Truth Social account and stores them in JSON and CSV formats. The scraper runs hourly via a GitHub Actions workflow and updates an S3 archive to keep a historical record of the posts. 
+一个自动抓取和分析特朗普在Truth Social上发布内容的工具。该项目可以定期爬取Truth Social上的特朗普账号发布的内容，并通过人工智能进行分析，包括金融市场影响分析、主题提取以及生成摘要。
 
-## How it works
+## 功能特点
 
-### Fetching data from Truth Social API
+- 自动抓取Truth Social上特朗普发布的内容
+- 对新发布的内容进行金融市场影响分析
+- 分析文本内容与股票市场、行业、公司股价或汇率的关系
+- 自动提取帖子中的主题关键词
+- 生成中文摘要
+- 通过飞书机器人自动推送分析结果
+- 支持周期性运行，持续监控更新
+- 支持自定义AI提示词
 
-The script (`scraper.py`) fetches posts directly from the Truth Social API using a proxy service (`ScrapeOps`) to ensure successful requests.
+## 环境要求
 
-- **Pagination support:** It requests up to 100 new posts in batches of 20.
-- **Media extraction:** Any images or videos in a post are extracted and stored as an array of URLs.
-- **Duplicate handling:** Before adding new posts, the script checks an existing archive to avoid duplicates.
+- Python 3.8 或更高版本
+- Deepseek API 密钥（用于AI分析）
+- 飞书机器人 Webhook URL（用于通知，可选）
 
-## Data output format
+## 安装
 
-The scraper outputs posts in JSON format with the following structure:
-
-```json
-[
-  {
-    "id": "114132050804394743",
-    "created_at": "2025-03-09T10:41:28.605Z",
-    "content": "Will be interviewed by Maria Bartiromo on Sunday Morning Futures at 10:00amET, enjoy! <span class=\"h-card\"><a href=\"https://truthsocial.com/@FoxNews\" class=\"u-url mention\">@<span>FoxNews</span></a></span>",
-    "url": "https://truthsocial.com/@realDonaldTrump/114132050804394743",
-    "media": [
-      "https://static-assets-1.truthsocial.com/tmtg:prime-ts-assets/media_attachments/files/114/132/050/631/878/172/original/f0e7d14a580b0bc6.mp4"
-    ],
-    "replies_count": 925,
-    "reblogs_count": 2938,
-    "favourites_count": 13166
-  },
-  {
-    "id": "114130744626893259",
-    "created_at": "2025-03-09T05:09:17.893Z",
-    "content": "",
-    "url": "https://truthsocial.com/@realDonaldTrump/114130744626893259",
-    "media": [
-      "https://static-assets-1.truthsocial.com/tmtg:prime-ts-assets/media_attachments/files/114/130/744/449/958/273/original/56b8a2c4e789ede9.jpg"
-    ],
-    "replies_count": 2451,
-    "reblogs_count": 3833,
-    "favourites_count": 16848
-  },
-]
-```
-
-### Field descriptions
-
-- **`id`** → The unique identifier for the post
-- **`created_at`** → Timestamp when the post was made
-- **`content`** → The text content of the post
-- **`url`** → Direct link to the post on Truth Social
-- **`media`** → An array of image and video URLs if the post contains media
-- **`replies_count`** → Number of replies to Trump post
-- **`reblogs_count`** → Number of re-posts, or re-truths, to Trump post
-- **`favourites_count`** → Number of favorites to Trump post
-
-## Docker Setup
-
-This repository now includes Docker support for easy deployment. The container runs the scraper on a schedule and can send notifications to a Lark (Feishu) workspace.
-
-### Using Docker Compose
-
-1. Copy the example environment file:
-   ```bash
-   cp .env.example .env
+1. 克隆此仓库:
+   ```
+   git clone https://github.com/yourusername/trump-truth-social-archive.git
+   cd trump-truth-social-archive
    ```
 
-2. Edit the `.env` file and add your credentials:
+2. 安装依赖:
    ```
-   SCRAPE_PROXY_KEY=your_scrapeops_api_key
-   LARK_WEBHOOK_URL=your_lark_webhook_url
-   HEALTH_CHECK_URL=your_health_check_webhook_url
+   pip install -r requirements.txt
    ```
 
-3. Start the container:
-   ```bash
-   docker-compose up -d
+3. 设置环境变量:
+   ```
+   export DEEPSEEK_API_KEY="your_deepseek_api_key_here"
+   export LARK_WEBHOOK_URL="your_lark_webhook_url_here" # 可选
    ```
 
-### Cron Schedule
+## 使用方法
 
-- The scraper runs every minute to fetch new posts
-- When new posts are found, notifications are sent immediately
+该项目提供了多种运行模式，可以通过命令行参数进行控制：
 
-### Lark Notifications
+### 1. 仅抓取数据
 
-The system now supports sending notifications to a Lark (Feishu) workspace when new Trump posts are detected. Notifications include:
-
-- Post content
-- Media links
-- Engagement metrics (replies, reblogs, favorites)
-- Direct link to the original post
-
-To set up Lark notifications:
-
-1. Create a Lark bot in your workspace and get the webhook URL
-2. Add the webhook URL to your environment variables
-3. The container will automatically send notifications when new posts are detected
-
-### Health Checks
-
-The system includes a health check feature that monitors for errors and sends alerts when:
-
-- The system fails to fetch posts for a threshold number of times (currently 5)
-- The target site may be blocking requests or changed its structure
-
-Health alerts:
-- Are limited to one alert per day to avoid notification spam
-- Can be sent to a separate webhook URL for system administrators
-
-## Testing Locally
-
-The repository includes several test scripts to verify functionality before deployment:
-
-### General Testing
-
-The `test_locally.py` script provides a full simulation of the scraper's functionality:
-
-```bash
-# Run all tests
-python test_locally.py
-
-# Test only specific components
-python test_locally.py --mode scrape  # Test only scraping
-python test_locally.py --mode notify  # Test only notifications
-python test_locally.py --mode error   # Test only error handling
-
-# Keep test data for inspection
-python test_locally.py --clean
+```
+python run.py scrape [--pages N]
 ```
 
-### Lark Notification Testing
+参数:
+- `--pages`: 指定最大抓取页数，默认为3页
 
-The `test_lark_notification.py` script tests the Lark notification functionality:
+### 2. 仅分析数据
 
-```bash
-# First set your Lark webhook URL
-export LARK_WEBHOOK_URL="your_lark_webhook_url"
-
-# Run all notification tests
-python test_lark_notification.py
-
-# Test specific notification features
-python test_lark_notification.py --test single  # Test single notification
-python test_lark_notification.py --test media   # Test notification with media
-python test_lark_notification.py --test batch   # Test batch notifications
-python test_lark_notification.py --test dedup   # Test deduplication
+```
+python run.py analyze [--limit N]
 ```
 
-### Health Check Testing
+参数:
+- `--limit`: 指定最大分析帖子数，默认为5条
 
-The `test_health_check.py` script tests the health check and error handling functionality:
+### 3. 执行完整周期（抓取+分析）
 
-```bash
-# Run all health check tests
-python test_health_check.py
-
-# Test specific health check features
-python test_health_check.py --test count      # Test error counting
-python test_health_check.py --test limit      # Test daily alert limit
-python test_health_check.py --test threshold  # Test error threshold alerts
+```
+python run.py cycle [--pages N] [--limit M] [--delay S]
 ```
 
-## GitHub Actions automation
+参数:
+- `--pages`: 指定最大抓取页数，默认为3页
+- `--limit`: 指定最大分析帖子数，默认为5条
+- `--delay`: 抓取和分析之间的延迟时间(秒)，默认为0秒
 
-The scraper runs every four hours at 47 minutes past. It's using a GitHub Actions workflow and environment secrets for AWS and ScrapeOps. In addition to fetching the data, the workflow also copies it to a designated S3 bucket. 
+### 4. 持续运行模式
 
-*Note: I'm considering strategies now for periodically rehydrating the archive with updated engeagement analytics (re-posts, replies, etc.) so that we capture changes over time for popular posts.*
-
-### Workflow steps
-
-1. Clone the repository
-2. Set up Python and install required dependencies
-3. Run `scraper.py` to fetch the latest posts
-4. Save new posts and update `truth_archive.json`
-5. Upload the updated JSON file to an S3 bucket (`stilesdata.com/trump-truth-social-archive/`)
-6. Commit and push changes back to GitHub
-
-## Installation and running locally
-
-To run the scraper manually on your machine:
-
-### Install dependencies
-
-```bash
-pip install -r requirements.txt
+```
+python run.py continuous [--pages N] [--limit M] [--interval S]
 ```
 
-### Set environment variables
+参数:
+- `--pages`: 指定最大抓取页数，默认为3页
+- `--limit`: 指定最大分析帖子数，默认为5条
+- `--interval`: 每次运行周期之间的间隔时间(秒)，默认为3600秒(1小时)
 
-You'll need to export your ScrapeOps API key and AWS credentials:
+## 自定义提示词
 
-```bash
-export SCRAPE_PROXY_KEY="your_scrapeops_api_key"
-export AWS_ACCESS_KEY_ID="your_aws_key"
-export AWS_SECRET_ACCESS_KEY="your_aws_secret"
-export LARK_WEBHOOK_URL="your_lark_webhook_url"      # Optional, for notifications
-export HEALTH_CHECK_URL="your_health_check_url"      # Optional, for health monitoring
+可以通过编辑 `config/prompts.json` 文件来自定义AI分析提示词。该文件包含以下配置项：
+
+- `market_impact`: 用于分析帖子内容与金融市场关系的提示词
+- `extract_topics`: 用于提取帖子主题的提示词
+- `summarize_post`: 用于生成摘要的提示词
+
+修改这些提示词可以调整AI分析的侧重点和输出效果。
+
+## 项目结构
+
+```
+trump-truth-social-archive/
+│
+├── run.py              # 主运行脚本
+├── scrape.py           # 爬虫脚本
+├── analyze_posts.py    # AI分析脚本
+├── config/             # 配置文件目录
+│   └── prompts.json    # AI提示词配置
+├── data/               # 存储抓取的数据
+│   ├── posts.json      # 帖子原始数据
+│   └── analysis/       # 分析结果数据
+│       └── results.json
+│
+└── logs/               # 日志文件
+    ├── scrape.log
+    └── analysis.log
 ```
 
-### Run the scraper
+## 注意事项
 
-```bash
-python scraper.py
-```
+- 该项目需要Deepseek API密钥才能进行AI分析
+- 请确保遵守Truth Social的服务条款和robots.txt政策
+- 大量请求可能会导致IP被临时封禁
+- Deepseek API调用会产生费用，请注意控制使用量
 
-This will fetch new posts and update `truth_archive.json` and `truth_archive.csv`.
+## 许可证
 
-### Send notifications manually
-
-```bash
-python send_lark_notification.py
-```
-
-This will check for new posts and send notifications to your configured Lark workspace.
-
-## Logging
-
-The system includes comprehensive logging:
-
-- Logs are stored in `./data/logs/` directory
-- Each component has its own log file with date-based naming
-- Log files include timestamps, log levels, and detailed information
-- All logs are also output to the console for real-time monitoring
-
-## Data storage and access
-
-- Historical posts are stored in an S3 bucket:
-  - [`truth_archive.json`](https://stilesdata.com/trump-truth-social-archive/truth_archive.json)
-  - [`truth_archive.csv`](https://stilesdata.com/trump-truth-social-archive/truth_archive.csv)
-
-- The latest version of these files is also stored in this repo and updated regularly.
-
-## Notes
-
-This project is for archival and research purposes only. Use responsibly. It is not affiliated with my employer.
-
-### Next steps and improvements:
-
-- Better flags for original posts vs. retweets
-- Better handling of media-only posts
-- Improve media handling (support for more formats)
-- Implement error logging for better monitoring
-- Better analytics: Keywords, classification, etc. 
-- Consider front-end display or Slack integration to help news teams monitor posts
+此项目遵循MIT许可证 - 详细内容请查看LICENSE文件

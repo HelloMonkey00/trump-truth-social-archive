@@ -5,18 +5,20 @@ WORKDIR /app
 # 安装cron和vim
 RUN apt-get update && apt-get install -y cron vim && apt-get clean && rm -rf /var/lib/apt/lists/*
 
+# 创建目录结构
+RUN mkdir -p /app/data /app/data/logs /app/config
+
 # 复制项目文件
 COPY requirements.txt .
 COPY config.py .
 COPY scrape.py .
 COPY send_lark_notification.py .
+COPY analyze_posts.py .
+COPY config/prompts.json /app/config/
 COPY crontab /etc/cron.d/scraper-cron
 
 # 确保cron文件的权限正确
 RUN chmod 0644 /etc/cron.d/scraper-cron
-
-# 创建数据目录
-RUN mkdir -p /app/data /app/data/logs
 
 # 安装Python依赖
 RUN pip install --no-cache-dir -r requirements.txt
@@ -27,6 +29,7 @@ RUN touch /var/log/cron.log
 # 设置环境变量
 ENV PYTHONUNBUFFERED=1
 ENV EDITOR=vim
+ENV ANALYZE_MARKET=true
 
 # 复制并设置entrypoint脚本
 COPY entrypoint.sh /app/entrypoint.sh

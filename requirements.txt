@@ -1,4 +1,10 @@
-requests
-beautifulsoup4
-tqdm
-python-dateutil
+requests>=2.31.0
+beautifulsoup4>=4.12.2
+pandas>=2.0.3
+lxml>=4.9.3
+python-dotenv>=1.0.0
+schedule>=1.2.1
+colorlog>=6.7.0
+tqdm>=4.66.1
+tiktoken>=0.5.2
+tenacity>=8.2.3

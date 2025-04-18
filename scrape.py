@@ -18,14 +18,19 @@ from config import (
     ERROR_THRESHOLD,
     ERROR_COUNT_FILE,
     LAST_ALERT_FILE,
-    USE_LOCAL_ARCHIVE
+    USE_LOCAL_ARCHIVE,
+    ANALYZE_MARKET,
+    DEEPSEEK_API_KEY,
+    AUTO_NOTIFY_MODE
 )
 
 # 确保所有必要的目录都存在
 DATA_DIR = "./data"
 LOG_DIR = "./data/logs"
+ANALYSIS_DIR = "./data/analysis"
 os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(LOG_DIR, exist_ok=True)
+os.makedirs(ANALYSIS_DIR, exist_ok=True)
 
 # 配置日志
 log_file = f"{LOG_DIR}/scraper_{datetime.now().strftime('%Y%m%d')}.log"
@@ -38,6 +43,22 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger('trump_scraper')
+
+# 检测是否需要进行市场分析
+try:
+    # 尝试导入市场分析模块 - 如果成功，则可以执行分析
+    from analyze_posts import PostAnalyzer
+    CAN_ANALYZE = True and ANALYZE_MARKET and DEEPSEEK_API_KEY
+    if CAN_ANALYZE:
+        logger.info("市场分析功能已启用")
+    else:
+        if not ANALYZE_MARKET:
+            logger.info("市场分析功能已禁用 (ANALYZE_MARKET=False)")
+        elif not DEEPSEEK_API_KEY:
+            logger.warning("市场分析功能不可用：缺少DeepSeek API密钥")
+except ImportError as e:
+    logger.warning(f"市场分析功能不可用：{str(e)}")
+    CAN_ANALYZE = False
 
 def send_health_alert(status, message):
     """
@@ -107,13 +128,11 @@ def get_error_count():
             return 0
     return 0
 
-def update_error_count(success=False):
+def update_error_count():
     """
-    更新错误计数
-    如果success=True，重置计数
-    否则递增计数
+    更新错误计数，递增计数
     """
-    count = 0 if success else get_error_count() + 1
+    count = get_error_count() + 1
     
     try:
         with open(ERROR_COUNT_FILE, "w") as f:
@@ -128,6 +147,17 @@ def update_error_count(success=False):
             )
     except IOError as e:
         logger.warning(f"Error updating error count: {e}")
+
+def reset_error_count():
+    """
+    重置错误计数为0
+    """
+    try:
+        with open(ERROR_COUNT_FILE, "w") as f:
+            f.write("0")
+        logger.info("Error count reset to 0")
+    except IOError as e:
+        logger.warning(f"Error resetting error count: {e}")
 
 def scrape(url, headers=None):
     """
@@ -266,90 +296,182 @@ def extract_posts(json_response, existing_posts):
 
 def fetch_posts(max_pages=3):
     """
-    Fetches posts with pagination up to a specified number of pages.
+    Fetches Truth Social posts from Trump's account.
     """
-    logger.info("Starting post fetch operation")
-    headers = {
-        'accept': 'application/json, text/plain, */*',
-        'referer': 'https://truthsocial.com/@realDonaldTrump'
-    }
+    if not SCRAPEOPS_API_KEY:
+        logger.error("Missing scrape_proxy_key in config file")
+        update_error_count()
+        send_health_alert(status="error", message="Missing scrape_proxy_key in config file")
+        return False
     
-    params = {
-        "exclude_replies": "true",
-        "only_replies": "false",
-        "with_muted": "true",
-        "limit": "20"
-    }
-
-    existing_posts = load_existing_posts()
-    all_posts = list(existing_posts.values())  # Start with existing data
-    page_count = 0
-    new_posts = []
-    found_new_posts = False
+    logger.info(f"Starting to fetch posts (max pages: {max_pages})")
+    all_posts = []
+    existing_posts = {}
+    
+    # 如果已有数据，加载并构建查重字典
+    if os.path.exists(OUTPUT_JSON_FILE):
+        try:
+            with open(OUTPUT_JSON_FILE, 'r', encoding='utf-8') as f:
+                old_posts = json.load(f)
+                logger.info(f"Loaded {len(old_posts)} existing posts")
+                all_posts = old_posts
+                existing_posts = {post.get("id"): True for post in old_posts}
+        except Exception as e:
+            logger.error(f"Error loading existing posts: {e}")
+    
+    if not existing_posts:
+        logger.info("No existing posts found, starting fresh")
+    
+    # 设置API访问
+    max_id = None
+    total_new_posts = 0
     success = False
-
-    try:
-        while page_count < max_pages:
-            url = f"{BASE_URL}?{'&'.join([f'{k}={v}' for k, v in params.items()])}"
-            logger.info(f"Fetching page {page_count+1}/{max_pages}: {url}")
-
-            try:
-                response = scrape(url, headers=headers)
-                if not response:  # Ensure response is valid
-                    logger.warning(f"Empty response from {url}. Skipping.")
-                    continue
-
-                current_page_posts = extract_posts(response, existing_posts)
-                if not current_page_posts:
-                    logger.info("No new posts found. Exiting pagination.")
-                    success = True  # 即使没有新帖子，也算成功
-                    break  # No more new posts
-
-                new_posts.extend(current_page_posts)
-                found_new_posts = True
-                params["max_id"] = current_page_posts[-1]["id"]  # Get older posts
-                page_count += 1
-                success = True  # 至少有一页抓取成功就算成功
-
-            except requests.exceptions.RequestException as e:
-                logger.error(f"Error fetching posts: {e}")
-                success = False
+    
+    for i in range(max_pages):
+        try:
+            # 构建URL
+            url = f"{BASE_URL}?limit=40"
+            if max_id:
+                url = f"{url}&max_id={max_id}"
+            
+            logger.info(f"Fetching page {i+1}/{max_pages}")
+            
+            # 发起请求
+            response_json = scrape(url)
+            
+            # 提取帖子数据
+            new_posts = extract_posts(response_json, existing_posts)
+            
+            if not new_posts:
+                logger.info("No new posts found, stopping pagination")
                 break
                 
-        if new_posts:
-            logger.info(f"Found {len(new_posts)} new posts in total")
-            all_posts.extend(new_posts)  # Merge new posts
+            # 更新帖子集合
+            all_posts = new_posts + all_posts
+            total_new_posts += len(new_posts)
             
-            # 排序帖子（按创建时间降序）
-            all_posts.sort(key=lambda post: post["created_at"], reverse=True)
+            # 保存中间结果
+            if all_posts:
+                append_to_json_file(all_posts, OUTPUT_JSON_FILE)
+                append_to_csv_file(all_posts, OUTPUT_CSV_FILE)
             
-            # 保存到文件
-            append_to_json_file(all_posts, OUTPUT_JSON_FILE)
-            append_to_csv_file(all_posts, OUTPUT_CSV_FILE)
+            # 设置下一页的max_id参数（基于当前页的最后一个帖子ID）
+            if response_json and len(response_json) > 0:
+                max_id = response_json[-1].get("id")
+            else:
+                break
+                
+            # 设置爬取成功标志
+            success = True
             
-            logger.info(f"Scraping complete. {len(new_posts)} new posts added.")
-
-            # 更新健康检查状态
-            with open("./data/last_success.txt", "w") as f:
-                f.write(str(int(time.time())))
-            logger.info("Updated last success timestamp")
-
-            # 立即调用通知功能
-            logger.info("Sending notifications for new posts...")
-            check_and_notify()
-        else:
-            logger.info("Scraping complete. No new posts found.")
-            
-        # 更新错误计数（成功时重置为0）
-        update_error_count(success=success)
-        logger.info(f"Updated error count. Success: {success}")
-            
-    except Exception as e:
-        logger.error(f"Unexpected error during scraping: {str(e)}", exc_info=True)
-        # 更新错误计数
-        update_error_count(success=False)
+            # 避免请求过快
+            if i < max_pages - 1:
+                time.sleep(2)
+                
+        except Exception as e:
+            logger.error(f"Error fetching posts on page {i+1}: {str(e)}")
+            update_error_count()
+            success = False
+            break
     
-    logger.info("Fetch operation completed")
+    # 发送健康检查 ping
+    send_health_alert(status="error" if not success else "success", message=f"Scraper completed with {'success' if success else 'failure'}")
+    
+    if success:
+        reset_error_count()
+        logger.info(f"Successfully fetched {total_new_posts} new posts")
+        
+        # 如果开启市场分析功能，则分析新抓取的帖子
+        if CAN_ANALYZE and total_new_posts > 0:
+            logger.info("开始进行市场分析...")
+            try:
+                analyzer = PostAnalyzer()
+                
+                # 分析最新的帖子
+                analysis_results = {}
+                posts_to_analyze = all_posts[:5]  # 最多分析最新的5条帖子
+                analyzed_count = 0
+                notified_count = 0
+                
+                # 获取已有的分析结果
+                existing_results = analyzer.load_analysis_results()
+                
+                for post in posts_to_analyze:
+                    post_id = post.get("id")
+                    post_content = post.get("content", "")
+                    
+                    # 跳过空内容或已分析的帖子
+                    if not post_content or post_id in existing_results:
+                        continue
+                        
+                    try:
+                        # 分析帖子
+                        market_impact = analyzer.analyze_market_impact(post_content)
+                        topics = analyzer.extract_topics(post_content)
+                        summary = analyzer.summarize_post(post_content)
+                        
+                        # 存储分析结果
+                        analysis = {
+                            "market_impact": market_impact,
+                            "topics": topics,
+                            "summary": summary,
+                            "analyzed_at": datetime.now().isoformat()
+                        }
+                        
+                        # 将结果添加到总表
+                        existing_results[post_id] = analysis
+                        analyzed_count += 1
+                        
+                        # 检查市场影响强度是否超过阈值
+                        impact_intensity = market_impact.get("intensity", 0)
+                        impact_direction = market_impact.get("direction", "neutral")
+                        
+                        # 决定是否发送通知
+                        should_notify = False
+                        notify_reason = ""
+                        
+                        # 根据模式选择判断方法
+                        if AUTO_NOTIFY_MODE:
+                            # 使用AI自动判断
+                            should_notify, notify_reason = analyzer.should_send_notification(post_content, market_impact)
+                            logger.info(f"AI自动判断结果: {should_notify}, 理由: {notify_reason}")
+                        else:
+                            # 使用传统方式判断
+                            should_notify = (impact_intensity >= 3 and impact_direction != "neutral")
+                            notify_reason = f"根据阈值判断 (强度: {impact_intensity}/5)"
+                        
+                        if should_notify:
+                            # 发送市场分析通知
+                            if analyzer.send_analysis_notification(post, analysis):
+                                logger.info(f"成功发送帖子 {post_id} 的分析结果通知 (影响强度: {impact_intensity}, 理由: {notify_reason})")
+                                notified_count += 1
+                            else:
+                                logger.warning(f"发送帖子 {post_id} 的分析结果通知失败")
+                        else:
+                            logger.info(f"帖子 {post_id} 不需要发送通知 (理由: {notify_reason})")
+                        
+                        # 更新上次分析的最后一条ID
+                        analyzer.save_last_analyzed_id(post_id)
+                        
+                    except Exception as e:
+                        logger.error(f"分析帖子 {post_id} 时出错: {str(e)}")
+                        continue
+                
+                # 保存分析结果
+                analyzer.save_analysis_results(existing_results)
+                
+                if analyzed_count > 0:
+                    logger.info(f"市场分析完成，共分析 {analyzed_count} 条帖子，发送通知 {notified_count} 条")
+                else:
+                    logger.warning("市场分析未找到需要分析的帖子")
+                    
+            except Exception as e:
+                logger.error(f"市场分析过程中出错: {str(e)}")
+        
+        return True
+    else:
+        logger.error("Failed to fetch posts")
+        return False
 
 if __name__ == "__main__":
     logger.info(f"=== Trump Truth Social Scraper started at {datetime.now().isoformat()} ===")

@@ -16,7 +16,10 @@ DEFAULT_CONFIG = {
     "archive_url": "",  # 移除远程URL
     "use_local_archive": True,  # 添加使用本地存档的标志
     "base_url": "https://truthsocial.com/api/v1/accounts/107780257626128497/statuses",
-    "error_threshold": 5
+    "error_threshold": 5,
+    "deepseek_api_key": "",  # 新增：Deepseek API密钥
+    "analyze_market": True,   # 新增：是否分析市场影响
+    "auto_notify_mode": True  # 新增：是否由AI自动判断是否需要发送通知
 }
 
 def load_config():
@@ -43,12 +46,19 @@ def load_config():
         env_mapping = {
             "SCRAPE_PROXY_KEY": "scrape_proxy_key",
             "LARK_WEBHOOK_URL": "lark_webhook_url",
-            "HEALTH_CHECK_URL": "health_check_url"
+            "HEALTH_CHECK_URL": "health_check_url",
+            "DEEPSEEK_API_KEY": "deepseek_api_key",  # 新增：从环境变量获取Deepseek API密钥
+            "ANALYZE_MARKET": "analyze_market",      # 新增：是否分析市场影响
+            "AUTO_NOTIFY_MODE": "auto_notify_mode"   # 新增：AI自动模式
         }
         
         for env_var, config_key in env_mapping.items():
             if os.getenv(env_var):
-                config[config_key] = os.getenv(env_var)
+                # 对于布尔值类型的配置项进行特殊处理
+                if config_key in ["analyze_market", "auto_notify_mode"]:
+                    config[config_key] = os.getenv(env_var).lower() in ('true', 'yes', '1')
+                else:
+                    config[config_key] = os.getenv(env_var)
         
         # 保存配置到文件
         save_config(config)
@@ -77,10 +87,16 @@ ARCHIVE_URL = config.get("archive_url")
 BASE_URL = config.get("base_url")
 ERROR_THRESHOLD = config.get("error_threshold", 5)
 USE_LOCAL_ARCHIVE = config.get("use_local_archive", True)
+DEEPSEEK_API_KEY = config.get("deepseek_api_key", "")  # 新增：Deepseek API密钥
+ANALYZE_MARKET = config.get("analyze_market", True)    # 新增：是否分析市场影响
+AUTO_NOTIFY_MODE = config.get("auto_notify_mode", True)  # 新增：是否由AI自动决定是否发送通知
 
 # 常量配置
 SCRAPEOPS_ENDPOINT = "https://proxy.scrapeops.io/v1/"
 OUTPUT_JSON_FILE = "./data/truth_archive.json"
 OUTPUT_CSV_FILE = "./data/truth_archive.csv"
 ERROR_COUNT_FILE = "./data/error_count.txt"
-LAST_ALERT_FILE = "./data/last_alert.txt" 
+LAST_ALERT_FILE = "./data/last_alert.txt"
+
+# 提示词配置文件路径
+PROMPTS_CONFIG_FILE = "./config/prompts.json" 
