@@ -27,11 +27,57 @@ def send_health_alert(status, message):
         print("⚠️ Missing HEALTH_CHECK_URL environment variable")
         return False
     
+    if status == "success":
+        print(f"Scraper completed with success")
+        return True
+    
+    # 根据状态选择颜色和表情
+    if status == "error":
+        color = "red"
+        emoji = "🔴"
+    elif status == "warning":
+        color = "yellow"
+        emoji = "⚠️"
+    else:
+        color = "blue"
+        emoji = "ℹ️"
+    
+    # 构建 Lark 消息卡片
     payload = {
-        "status": status,
-        "message": message,
-        "timestamp": datetime.now().isoformat(),
-        "service": "trump-truth-scraper"
+        "msg_type": "interactive",
+        "card": {
+            "config": {
+                "wide_screen_mode": True
+            },
+            "header": {
+                "title": {
+                    "tag": "plain_text",
+                    "content": f"{emoji} Trump Truth Social 爬虫状态通知"
+                },
+                "template": color
+            },
+            "elements": [
+                {
+                    "tag": "div",
+                    "text": {
+                        "tag": "lark_md",
+                        "content": f"**状态**: {status}\n\n**详细信息**:\n{message}"
+                    }
+                },
+                {
+                    "tag": "hr"
+                },
+                {
+                    "tag": "note",
+                    "elements": [
+                        {
+                            "tag": "plain_text",
+                            "content": f"时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                        }
+                    ]
+                }
+            ]
+        }
     }
     
     try:

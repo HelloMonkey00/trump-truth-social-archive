@@ -74,6 +74,9 @@ def send_health_alert(status, message):
     if not HEALTH_CHECK_URL:
         logger.warning("Missing health_check_url in config file")
         return False
+    if status == "success":
+        logger.info(f"Scraper completed with success")
+        return True
     
     # 检查今天是否已经发送过告警
     today = datetime.now().date()
@@ -87,11 +90,53 @@ def send_health_alert(status, message):
             except (ValueError, IOError) as e:
                 logger.warning(f"Error reading last alert date: {e}")
     
+    # 根据状态选择颜色和表情
+    if status == "error":
+        color = "red"
+        emoji = "🔴"
+    elif status == "warning":
+        color = "yellow"
+        emoji = "⚠️"
+    else:
+        color = "blue"
+        emoji = "ℹ️"
+    
+    # 构建 Lark 消息卡片
     payload = {
-        "status": status,
-        "message": message,
-        "timestamp": datetime.now().isoformat(),
-        "service": "trump-truth-scraper"
+        "msg_type": "interactive",
+        "card": {
+            "config": {
+                "wide_screen_mode": True
+            },
+            "header": {
+                "title": {
+                    "tag": "plain_text",
+                    "content": f"{emoji} Trump Truth Social 爬虫状态通知"
+                },
+                "template": color
+            },
+            "elements": [
+                {
+                    "tag": "div",
+                    "text": {
+                        "tag": "lark_md",
+                        "content": f"**状态**: {status}\n\n**详细信息**:\n{message}"
+                    }
+                },
+                {
+                    "tag": "hr"
+                },
+                {
+                    "tag": "note",
+                    "elements": [
+                        {
+                            "tag": "plain_text",
+                            "content": f"时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                        }
+                    ]
+                }
+            ]
+        }
     }
     
     try:
@@ -344,6 +389,7 @@ def fetch_posts(max_pages=3):
             
             if not new_posts:
                 logger.info("No new posts found, stopping pagination")
+                success = True # 如果未找到新帖子，则认为爬取成功
                 break
                 
             # 更新帖子集合
@@ -374,10 +420,9 @@ def fetch_posts(max_pages=3):
             success = False
             break
     
-    # 发送健康检查 ping
     send_health_alert(status="error" if not success else "success", message=f"Scraper completed with {'success' if success else 'failure'}")
     
-    if success:
+    if success and len(total_new_posts) > 0:
         reset_error_count()
         logger.info(f"Successfully fetched {total_new_posts} new posts")
         
