@@ -422,7 +422,7 @@ def fetch_posts(max_pages=3):
     
     send_health_alert(status="error" if not success else "success", message=f"Scraper completed with {'success' if success else 'failure'}")
     
-    if success and len(total_new_posts) > 0:
+    if success and total_new_posts > 0:
         reset_error_count()
         logger.info(f"Successfully fetched {total_new_posts} new posts")
         
