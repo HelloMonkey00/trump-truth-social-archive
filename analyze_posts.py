@@ -6,7 +6,8 @@ from datetime import datetime
 import requests
 from config import (
     OUTPUT_JSON_FILE,
-    LARK_WEBHOOK_URL
+    LARK_WEBHOOK_URL,
+    DEEPSEEK_API_KEY
 )
 
 # 确保所有必要的目录都存在
@@ -30,7 +31,6 @@ logging.basicConfig(
 logger = logging.getLogger('trump_analyzer')
 
 # Deepseek API配置 - 从环境变量或配置文件获取
-DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
 DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions"
 
 # 提示词配置文件
@@ -39,7 +39,7 @@ PROMPTS_CONFIG_FILE = "./config/prompts.json"
 class PostAnalyzer:
     def __init__(self, api_key=None):
         """初始化分析器"""
-        self.api_key = api_key or DEEPSEEK_API_KEY
+        self.api_key = api_key or DEEPSEEK_API_KEY 
         if not self.api_key:
             logger.warning("Missing Deepseek API key. AI analysis functions will not work.")
         self.last_analysis_file = f"{ANALYSIS_DIR}/last_analysis.txt"
